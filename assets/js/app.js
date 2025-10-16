@@ -222,6 +222,12 @@ function renderTree(node) {
     button.className = "section-link";
     button.type = "button";
     button.textContent = formatNodeLabel(node);
+    if (node.identifier) {
+      button.dataset.identifier = node.identifier;
+    }
+    if (node.number) {
+      button.dataset.number = node.number;
+    }
     button.addEventListener("click", () => displaySection(node.identifier || node.number));
     return button;
   }
@@ -276,13 +282,14 @@ async function displaySection(identifierOrNumber) {
 
   try {
     const { doc } = await fetchTitleDocument(nav.metadata);
-    const sectionElement = findSectionElement(doc, sectionNode.identifier);
+    const sectionElement = findSectionElement(doc, sectionNode.identifier, sectionNode.number);
     if (!sectionElement) {
       elements.message.textContent = "Section markup not found in XML.";
       return;
     }
     renderBreadcrumbs(path);
     renderSection(sectionElement);
+    highlightSectionLink(sectionNode);
   } catch (error) {
     console.error(error);
     elements.message.textContent = "Unable to render section.";
@@ -299,10 +306,16 @@ function renderBreadcrumbs(path) {
   });
 }
 
-function findSectionElement(doc, identifier) {
-  if (!identifier) return null;
+function findSectionElement(doc, identifier, number) {
   const sections = doc.getElementsByTagNameNS(USLM_NS, "section");
-  return Array.from(sections).find((section) => section.getAttribute("identifier") === identifier);
+  const sectionList = Array.from(sections);
+  if (identifier) {
+    const match = sectionList.find((section) => section.getAttribute("identifier") === identifier);
+    if (match) return match;
+  }
+  if (!number) return null;
+  const targetKey = sectionKey(number);
+  return sectionList.find((section) => sectionKey(directChildText(section, "num")) === targetKey) || null;
 }
 
 function renderSection(sectionElement) {
@@ -310,21 +323,51 @@ function renderSection(sectionElement) {
   elements.sectionContent.innerHTML = "";
 
   const header = document.createElement("header");
+  header.className = "section-header";
+
+  const headingGroup = document.createElement("div");
+  headingGroup.className = "section-heading-group";
   const number = directChildText(sectionElement, "num");
   const heading = directChildText(sectionElement, "heading");
   if (number) {
     const span = document.createElement("span");
     span.className = "section-number";
     span.textContent = number.replace(/—+$/, "").trim();
-    header.appendChild(span);
+    headingGroup.appendChild(span);
   }
   if (heading) {
     const h2 = document.createElement("span");
     h2.className = "section-heading";
     h2.textContent = heading;
-    header.appendChild(h2);
+    headingGroup.appendChild(h2);
   }
+  header.appendChild(headingGroup);
+
+  const toggle = document.createElement("div");
+  toggle.className = "section-toggle";
+  const textButton = document.createElement("button");
+  textButton.type = "button";
+  textButton.className = "section-toggle__button is-active";
+  textButton.textContent = "Statute";
+  textButton.setAttribute("aria-pressed", "true");
+  const notesButton = document.createElement("button");
+  notesButton.type = "button";
+  notesButton.className = "section-toggle__button";
+  notesButton.textContent = "Notes";
+  notesButton.setAttribute("aria-pressed", "false");
+  toggle.append(textButton, notesButton);
+  header.appendChild(toggle);
+
   elements.sectionContent.appendChild(header);
+
+  const panels = document.createElement("div");
+  panels.className = "section-panels";
+  panels.dataset.view = "statute";
+
+  const statutePanel = document.createElement("div");
+  statutePanel.className = "section-panel section-panel--statute";
+  statutePanel.id = "section-statute";
+  textButton.setAttribute("aria-controls", statutePanel.id);
 
   const content = directChild(sectionElement, "content");
   if (content) {
@@ -334,24 +377,79 @@ function renderSection(sectionElement) {
       const rendered = renderNode(child);
       if (rendered) body.appendChild(rendered);
     });
-    elements.sectionContent.appendChild(body);
+    statutePanel.appendChild(body);
+  } else {
+    const empty = document.createElement("p");
+    empty.className = "section-empty";
+    empty.textContent = "No statutory text is available for this section.";
+    statutePanel.appendChild(empty);
   }
+
+  panels.appendChild(statutePanel);
 
   const notesList = Array.from(sectionElement.children).filter(
     (child) => child.namespaceURI === USLM_NS && child.localName === "notes",
   );
-  notesList.forEach((notes) => {
-    const noteElement = renderNotes(notes);
-    if (noteElement) {
-      elements.sectionContent.appendChild(noteElement);
-    }
-  });
+  const notesPanel = document.createElement("div");
+  notesPanel.className = "section-panel section-panel--notes";
+  notesPanel.id = "section-notes";
+  notesButton.setAttribute("aria-controls", notesPanel.id);
+  if (notesList.length) {
+    notesList.forEach((notes) => {
+      const noteElement = renderNotes(notes);
+      if (noteElement) {
+        notesPanel.appendChild(noteElement);
+      }
+    });
+  } else {
+    const emptyNotes = document.createElement("p");
+    emptyNotes.className = "section-empty";
+    emptyNotes.textContent = "There are no editorial notes for this section.";
+    notesPanel.appendChild(emptyNotes);
+  }
+
+  panels.appendChild(notesPanel);
+  elements.sectionContent.appendChild(panels);
+
+  const switchView = (view) => {
+    panels.dataset.view = view;
+    const showNotes = view === "notes";
+    notesButton.classList.toggle("is-active", showNotes);
+    textButton.classList.toggle("is-active", !showNotes);
+    notesButton.setAttribute("aria-pressed", showNotes ? "true" : "false");
+    textButton.setAttribute("aria-pressed", showNotes ? "false" : "true");
+  };
+
+  textButton.addEventListener("click", () => switchView("statute"));
+  notesButton.addEventListener("click", () => switchView("notes"));
+
+  scrollSectionIntoView();
 }
 
 function directChild(element, name) {
   return Array.from(element.children).find(
     (el) => el.namespaceURI === USLM_NS && el.localName === name,
   );
+}
+
+function highlightSectionLink(targetNode) {
+  const targetIdentifier = targetNode.identifier || "";
+  const targetNumberKey = targetNode.number ? sectionKey(targetNode.number) : "";
+  const buttons = document.querySelectorAll(".section-link");
+  buttons.forEach((button) => {
+    const identifier = button.dataset.identifier || "";
+    const numberKey = button.dataset.number ? sectionKey(button.dataset.number) : "";
+    const isMatch =
+      (targetIdentifier && identifier === targetIdentifier) ||
+      (!targetIdentifier && targetNumberKey && numberKey === targetNumberKey);
+    button.classList.toggle("active", Boolean(isMatch));
+  });
+}
+
+function scrollSectionIntoView() {
+  const rect = elements.sectionContent.getBoundingClientRect();
+  const offset = window.scrollY + rect.top - 80;
+  window.scrollTo({ top: Math.max(offset, 0), behavior: "smooth" });
 }
 
 function renderNode(node) {
