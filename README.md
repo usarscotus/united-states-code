@@ -3,7 +3,7 @@
 This repository contains the raw United States Code XML files along with a lightweight
 static website that renders the material in a reader-friendly format for the United
 States of America Roblox (USAR) community. The website is designed to run on GitHub
-Pages (via the `docs/` directory) and mirrors the structured browsing experience of
+Pages from the repository root and mirrors the structured browsing experience of
 Cornell Law's legal information pages.
 
 ## Getting started
@@ -16,10 +16,10 @@ Cornell Law's legal information pages.
    tools/build_index.py
    ```
 
-   The command creates `docs/data/titles.json`, which the web application uses to
+   The command creates `data/titles.json`, which the web application uses to
    populate the title list. Re-run it whenever XML files are updated.
-3. Open `docs/index.html` in your browser or push the repository to GitHub with
-   Pages enabled (using the `docs/` folder) to browse the code.
+3. Open `index.html` in your browser or push the repository to GitHub with Pages
+   enabled (serving from the repository root) to browse the code.
 
 ## Working with Git LFS titles
 
@@ -35,9 +35,9 @@ git lfs pull
 
 ## Development notes
 
-* `docs/assets/js/app.js` fetches XML files on demand and converts the USLM markup to
+* `assets/js/app.js` fetches XML files on demand and converts the USLM markup to
   rich HTML in the browser.
-* Styling lives in `docs/assets/css/main.css` and aims to provide a modern, accessible
+* Styling lives in `assets/css/main.css` and aims to provide a modern, accessible
   reading experience with responsive layout.
 * The repository intentionally keeps the XML source untouched; all enhancements occur
   in the static site layer.

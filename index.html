@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>US Code Library | United States of America Roblox</title>
+    <link rel="stylesheet" href="assets/css/main.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="brand">
+        <span class="brand-abbr">USAR</span>
+        <div class="brand-text">
+          <h1>United States Code Library</h1>
+          <p>United States of America Roblox Legislative Reference</p>
+        </div>
+      </div>
+      <form id="citation-search" class="citation-search" autocomplete="off">
+        <div class="field">
+          <label for="citation-title">Title</label>
+          <input id="citation-title" name="title" type="text" inputmode="numeric" placeholder="e.g. 5" />
+        </div>
+        <div class="field">
+          <label for="citation-section">Section</label>
+          <input id="citation-section" name="section" type="text" placeholder="e.g. 3331" />
+        </div>
+        <button type="submit" class="button">Go</button>
+      </form>
+    </header>
+
+    <main class="layout">
+      <aside class="title-browser" aria-label="US Code titles">
+        <div class="title-browser__header">
+          <h2>Browse Titles</h2>
+          <input id="title-filter" type="search" placeholder="Filter titles" aria-label="Filter titles" />
+        </div>
+        <nav id="title-list" class="title-list" aria-live="polite"></nav>
+        <div class="title-browser__footer">
+          <p>Data generated directly from US Code XML. Large titles stored in Git LFS must be fetched locally before they can be rendered.</p>
+        </div>
+      </aside>
+
+      <section id="document-viewer" class="document-viewer" aria-live="polite">
+        <div id="document-message" class="document-message" role="status"></div>
+        <nav id="breadcrumbs" class="breadcrumbs" aria-label="Section breadcrumb"></nav>
+        <article id="title-overview" class="title-overview" hidden></article>
+        <div id="toc" class="toc" hidden></div>
+        <article id="section-content" class="section-content" hidden></article>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>Maintained for the USAR community. Source XML files published by the Office of the Law Revision Counsel.</p>
+    </footer>
+
+    <script type="module" src="assets/js/app.js"></script>
+  </body>
+</html>

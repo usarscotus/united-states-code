@@ -12,7 +12,7 @@ import xml.etree.ElementTree as ET
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 USC_DIR = REPO_ROOT / "usc"
-OUTPUT_FILE = REPO_ROOT / "docs" / "data" / "titles.json"
+OUTPUT_FILE = REPO_ROOT / "data" / "titles.json"
 NS = {
     "uslm": "http://xml.house.gov/schemas/uslm/1.0",
     "dc": "http://purl.org/dc/elements/1.1/",
