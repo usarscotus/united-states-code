@@ -35,6 +35,22 @@
         </div>
       </div>
       <form id="citation-search" class="citation-search" autocomplete="off">
+        <fieldset class="citation-search__modes">
+          <legend class="visually-hidden">Choose how to search the code</legend>
+          <label class="citation-search__mode is-active">
+            <input
+              type="radio"
+              name="search-mode"
+              value="citation"
+              checked
+            />
+            <span>Citation</span>
+          </label>
+          <label class="citation-search__mode">
+            <input type="radio" name="search-mode" value="keyword" />
+            <span>Keyword</span>
+          </label>
+        </fieldset>
         <div class="field">
           <label for="citation-title">Title</label>
           <input id="citation-title" name="title" type="text" inputmode="numeric" placeholder="e.g. 5" />
@@ -42,6 +58,16 @@
         <div class="field">
           <label for="citation-section">Section</label>
           <input id="citation-section" name="section" type="text" placeholder="e.g. 3331" />
+        </div>
+        <div class="field citation-search__keyword">
+          <label for="keyword-search">Keyword or phrase</label>
+          <input
+            id="keyword-search"
+            name="keyword"
+            type="search"
+            placeholder="e.g. Director of the Central Intelligence Agency"
+            disabled
+          />
         </div>
         <button type="submit" class="button">Go</button>
       </form>
@@ -74,6 +100,14 @@
             <button type="button" id="toc-toggle" class="toc-toggle" aria-controls="toc" aria-expanded="true">Collapse</button>
           </div>
           <div id="toc" class="toc"></div>
+        </section>
+        <section id="search-results" class="search-results" hidden aria-live="polite">
+          <div class="search-results__summary">
+            <h2>Search results</h2>
+            <p id="search-results-summary"></p>
+          </div>
+          <ol id="search-results-list" class="search-results__list"></ol>
+          <div id="search-results-note" class="search-results__note" hidden></div>
         </section>
         <article id="section-content" class="section-content" hidden></article>
       </section>

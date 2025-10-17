@@ -24,6 +24,7 @@ const state = {
   selectedSectionId: null,
   tocCollapsed: false,
   theme: "system",
+  searchMode: "citation",
   location: {
     title: null,
     section: null,
@@ -43,8 +44,14 @@ const elements = {
   citationForm: document.getElementById("citation-search"),
   citationTitle: document.getElementById("citation-title"),
   citationSection: document.getElementById("citation-section"),
+  searchModeInputs: document.querySelectorAll('input[name="search-mode"]'),
+  keywordInput: document.getElementById("keyword-search"),
   tocToggle: document.getElementById("toc-toggle"),
   themeButtons: document.querySelectorAll("[data-theme-choice]"),
+  searchResults: document.getElementById("search-results"),
+  searchResultsSummary: document.getElementById("search-results-summary"),
+  searchResultsList: document.getElementById("search-results-list"),
+  searchResultsNote: document.getElementById("search-results-note"),
 };
 
 const mediaQueries = {
@@ -74,6 +81,7 @@ const shareMetaDefaults = {
 };
 
 const SITE_NAME = "US Code Library";
+const SEARCH_SNIPPET_RADIUS = 160;
 
 function applyShareMetadata({ pageTitle, shareTitle, description }) {
   const resolvedPageTitle = pageTitle || shareMetaDefaults.documentTitle;
@@ -115,6 +123,64 @@ function resetShareMetadata() {
     shareTitle: shareMetaDefaults.ogTitle,
     description: shareMetaDefaults.description,
   });
+}
+
+function hideSearchResults() {
+  if (!elements.searchResults) return;
+  elements.searchResults.hidden = true;
+  if (elements.searchResultsSummary) {
+    elements.searchResultsSummary.textContent = "";
+  }
+  if (elements.searchResultsList) {
+    elements.searchResultsList.innerHTML = "";
+  }
+  if (elements.searchResultsNote) {
+    elements.searchResultsNote.hidden = true;
+    elements.searchResultsNote.innerHTML = "";
+  }
+}
+
+function setSearchMode(mode) {
+  if (!mode || !["citation", "keyword"].includes(mode)) {
+    mode = "citation";
+  }
+  state.searchMode = mode;
+  if (elements.searchModeInputs) {
+    elements.searchModeInputs.forEach((input) => {
+      const isActive = input.value === mode;
+      input.checked = isActive;
+      const label = input.closest(".citation-search__mode");
+      if (label) {
+        label.classList.toggle("is-active", isActive);
+      }
+    });
+  }
+
+  const disableCitation = mode === "keyword";
+  if (elements.citationTitle) {
+    elements.citationTitle.disabled = disableCitation;
+    if (disableCitation) {
+      elements.citationTitle.value = "";
+    }
+  }
+  if (elements.citationSection) {
+    elements.citationSection.disabled = disableCitation;
+    if (disableCitation) {
+      elements.citationSection.value = "";
+    }
+  }
+
+  const disableKeyword = mode === "citation";
+  if (elements.keywordInput) {
+    elements.keywordInput.disabled = disableKeyword;
+    if (disableKeyword) {
+      elements.keywordInput.value = "";
+    }
+  }
+
+  if (mode === "citation") {
+    hideSearchResults();
+  }
 }
 
 function cleanWhitespace(value) {
@@ -331,6 +397,7 @@ function resetViewer() {
   elements.message.textContent = "Select a title to begin browsing the code.";
   setTocCollapsed(false);
   resetShareMetadata();
+  hideSearchResults();
 }
 
 function handlePopState() {
@@ -348,11 +415,21 @@ async function bootstrap() {
   renderTitleList(state.titles);
   elements.titleFilter.addEventListener("input", handleTitleFilter);
   elements.citationForm.addEventListener("submit", handleCitationSearch);
+  if (elements.searchModeInputs) {
+    elements.searchModeInputs.forEach((input) =>
+      input.addEventListener("change", () => {
+        if (input.checked) {
+          setSearchMode(input.value);
+        }
+      }),
+    );
+  }
   elements.tocToggle.addEventListener("click", toggleToc);
   elements.themeButtons.forEach((button) =>
     button.addEventListener("click", () => setTheme(button.dataset.themeChoice)),
   );
   initializeTheme();
+  setSearchMode(state.searchMode);
   window.addEventListener("popstate", handlePopState);
   await restoreFromLocation();
   if (!state.selectedTitleId) {
@@ -406,6 +483,7 @@ async function loadTitle(file, options = {}) {
   elements.titleOverview.hidden = true;
   elements.breadcrumbs.innerHTML = "";
   elements.message.textContent = "Loading title...";
+  hideSearchResults();
 
   highlightTitle(file);
 
@@ -990,14 +1068,259 @@ function renderList(node) {
   return ul;
 }
 
+function prepareForKeywordSearch() {
+  state.selectedTitleId = null;
+  state.selectedTitleMeta = null;
+  state.selectedSectionId = null;
+  highlightTitle(null);
+  elements.titleOverview.hidden = true;
+  elements.titleOverview.innerHTML = "";
+  elements.tocContainer.hidden = true;
+  elements.toc.innerHTML = "";
+  elements.sectionContent.hidden = true;
+  elements.sectionContent.innerHTML = "";
+  elements.breadcrumbs.innerHTML = "";
+  elements.message.textContent = "";
+  setTocCollapsed(false);
+  resetShareMetadata();
+  setLocationState({ title: null, section: null }, { replace: true });
+}
+
+async function handleKeywordSearch() {
+  const query = elements.keywordInput ? elements.keywordInput.value.trim() : "";
+  if (!query) {
+    elements.message.textContent = "Enter a keyword or phrase to search.";
+    return;
+  }
+
+  prepareForKeywordSearch();
+  hideSearchResults();
+  if (!elements.searchResults) return;
+
+  elements.searchResults.hidden = false;
+  if (elements.searchResultsSummary) {
+    elements.searchResultsSummary.textContent = `Searching for "${query}"...`;
+  }
+  if (elements.searchResultsList) {
+    elements.searchResultsList.innerHTML = "";
+  }
+
+  const normalizedQuery = query.toLowerCase();
+  const matches = [];
+  const skippedTitles = [];
+  const failedTitles = [];
+  const seenSections = new Set();
+
+  for (const metadata of state.titles) {
+    if (metadata.pointer) {
+      skippedTitles.push(metadata);
+      continue;
+    }
+    let payload;
+    try {
+      payload = await fetchTitleDocument(metadata);
+    } catch (error) {
+      console.error(error);
+      failedTitles.push(metadata);
+      continue;
+    }
+
+    let nav = state.navigation.get(metadata.file);
+    if (!nav) {
+      nav = buildNavigation(metadata, payload.doc);
+      state.navigation.set(metadata.file, nav);
+    }
+
+    const sections = payload.doc.getElementsByTagNameNS(USLM_NS, "section");
+    const sectionList = Array.from(sections);
+    sectionList.forEach((section) => {
+      const text = cleanWhitespace(section.textContent || "");
+      if (!text) return;
+      const lower = text.toLowerCase();
+      const matchIndex = lower.indexOf(normalizedQuery);
+      if (matchIndex === -1) return;
+      const identifier = section.getAttribute("identifier") || "";
+      const number = directChildText(section, "num");
+      const key = `${metadata.file}::${identifier || sectionKey(number || "")}`;
+      if (seenSections.has(key)) return;
+      seenSections.add(key);
+      matches.push({
+        title: metadata,
+        identifier,
+        number,
+        heading: directChildText(section, "heading"),
+        snippetSource: text,
+        matchIndex,
+      });
+    });
+  }
+
+  renderSearchResults(query, matches, skippedTitles, failedTitles);
+}
+
+function renderSearchResults(query, matches, skippedTitles, failedTitles) {
+  if (!elements.searchResults) return;
+  elements.searchResults.hidden = false;
+
+  const count = matches.length;
+  const summary =
+    count === 0
+      ? `No results found for "${query}".`
+      : `Found ${count} ${count === 1 ? "result" : "results"} for "${query}".`;
+  if (elements.searchResultsSummary) {
+    elements.searchResultsSummary.textContent = summary;
+  }
+
+  if (elements.searchResultsList) {
+    elements.searchResultsList.innerHTML = "";
+    const fragment = document.createDocumentFragment();
+    matches.forEach((match) => {
+      const item = document.createElement("li");
+      item.className = "search-results__item";
+
+      const meta = document.createElement("div");
+      meta.className = "search-results__meta";
+
+      const titleLabel = formatTitleShareLabel(match.title) || getTitleDisplayLabel(match.title);
+      const titleElement = document.createElement("p");
+      titleElement.className = "search-results__title";
+      titleElement.textContent = titleLabel;
+      meta.appendChild(titleElement);
+
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "search-results__button";
+      const numberSpan = document.createElement("span");
+      numberSpan.className = "search-results__section-number";
+      numberSpan.textContent = cleanSectionNumber(match.number || "") || "Section";
+      button.appendChild(numberSpan);
+
+      const headingText = cleanWhitespace(match.heading || "");
+      if (headingText) {
+        const headingSpan = document.createElement("span");
+        headingSpan.className = "search-results__section-heading";
+        headingSpan.textContent = headingText;
+        button.appendChild(headingSpan);
+      }
+
+      button.addEventListener("click", async () => {
+        hideSearchResults();
+        await loadTitle(match.title.file);
+        const target = match.identifier || match.number;
+        if (target) {
+          await displaySection(target);
+        }
+      });
+
+      meta.appendChild(button);
+      item.appendChild(meta);
+
+      const snippet = createSnippetElement(match.snippetSource, match.matchIndex, query);
+      if (snippet) {
+        item.appendChild(snippet);
+      }
+
+      fragment.appendChild(item);
+    });
+    elements.searchResultsList.appendChild(fragment);
+  }
+
+  if (elements.searchResultsNote) {
+    const notes = [];
+    if (skippedTitles.length) {
+      const labelList = skippedTitles.map((title) => getTitleDisplayLabel(title)).join(", ");
+      notes.push(
+        `Some titles could not be searched because their XML is stored in Git LFS: ${labelList}.`,
+      );
+    }
+    if (failedTitles.length) {
+      const labelList = failedTitles.map((title) => getTitleDisplayLabel(title)).join(", ");
+      notes.push(`Unable to search the following titles due to a loading error: ${labelList}.`);
+    }
+
+    if (notes.length) {
+      elements.searchResultsNote.innerHTML = "";
+      notes.forEach((text) => {
+        const p = document.createElement("p");
+        p.textContent = text;
+        elements.searchResultsNote.appendChild(p);
+      });
+      elements.searchResultsNote.hidden = false;
+    } else {
+      elements.searchResultsNote.hidden = true;
+      elements.searchResultsNote.innerHTML = "";
+    }
+  }
+}
+
+function createSnippetElement(sourceText, matchIndex, query) {
+  if (!sourceText || matchIndex < 0 || !query) return null;
+  const start = Math.max(0, matchIndex - SEARCH_SNIPPET_RADIUS);
+  const end = Math.min(
+    sourceText.length,
+    matchIndex + query.length + SEARCH_SNIPPET_RADIUS,
+  );
+  const snippetText = sourceText.slice(start, end);
+  const paragraph = document.createElement("p");
+  paragraph.className = "search-results__snippet";
+  if (start > 0) {
+    paragraph.appendChild(document.createTextNode("…"));
+  }
+  paragraph.appendChild(buildHighlightedFragment(snippetText, query));
+  if (end < sourceText.length) {
+    paragraph.appendChild(document.createTextNode("…"));
+  }
+  return paragraph;
+}
+
+function buildHighlightedFragment(text, query) {
+  const fragment = document.createDocumentFragment();
+  if (!query) {
+    fragment.appendChild(document.createTextNode(text));
+    return fragment;
+  }
+  const lowerText = text.toLowerCase();
+  const lowerQuery = query.toLowerCase();
+  const queryLength = query.length;
+  let index = 0;
+  while (index < text.length) {
+    const matchIndex = lowerText.indexOf(lowerQuery, index);
+    if (matchIndex === -1) {
+      fragment.appendChild(document.createTextNode(text.slice(index)));
+      break;
+    }
+    if (matchIndex > index) {
+      fragment.appendChild(document.createTextNode(text.slice(index, matchIndex)));
+    }
+    const mark = document.createElement("mark");
+    mark.textContent = text.slice(matchIndex, matchIndex + queryLength);
+    fragment.appendChild(mark);
+    index = matchIndex + queryLength;
+  }
+  return fragment;
+}
+
+function getTitleDisplayLabel(metadata) {
+  if (!metadata) return "";
+  if (metadata.label) return metadata.label;
+  if (metadata.number) return `Title ${metadata.number}`;
+  return metadata.heading || metadata.file || "Title";
+}
+
 async function handleCitationSearch(event) {
   event.preventDefault();
+  if (state.searchMode === "keyword") {
+    await handleKeywordSearch();
+    return;
+  }
+
   const titleValue = elements.citationTitle.value.trim();
   const sectionValue = elements.citationSection.value.trim();
   if (!titleValue) {
     elements.message.textContent = "Enter a title number to search.";
     return;
   }
+  hideSearchResults();
   const titleMeta = state.titles.find((t) => normalizeTitleNumber(t.number) === normalizeTitleNumber(titleValue));
   if (!titleMeta) {
     elements.message.textContent = `Title ${titleValue} not found.`;
