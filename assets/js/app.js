@@ -51,6 +51,144 @@ const mediaQueries = {
   prefersDark: window.matchMedia("(prefers-color-scheme: dark)"),
 };
 
+const shareMetaElements = {
+  description: document.querySelector('meta[name="description"]'),
+  ogTitle: document.querySelector('meta[property="og:title"]'),
+  ogDescription: document.querySelector('meta[property="og:description"]'),
+  twitterTitle: document.querySelector('meta[name="twitter:title"]'),
+  twitterDescription: document.querySelector('meta[name="twitter:description"]'),
+};
+
+const shareMetaDefaults = {
+  documentTitle: document.title,
+  description: shareMetaElements.description?.getAttribute("content") || "",
+  ogTitle: shareMetaElements.ogTitle?.getAttribute("content") || document.title,
+  ogDescription:
+    shareMetaElements.ogDescription?.getAttribute("content") ||
+    (shareMetaElements.description?.getAttribute("content") || ""),
+  twitterTitle:
+    shareMetaElements.twitterTitle?.getAttribute("content") || document.title,
+  twitterDescription:
+    shareMetaElements.twitterDescription?.getAttribute("content") ||
+    (shareMetaElements.description?.getAttribute("content") || ""),
+};
+
+const SITE_NAME = "US Code Library";
+
+function applyShareMetadata({ pageTitle, shareTitle, description }) {
+  const resolvedPageTitle = pageTitle || shareMetaDefaults.documentTitle;
+  const resolvedShareTitle = shareTitle || shareMetaDefaults.ogTitle;
+  const resolvedDescription =
+    description ?? shareMetaDefaults.description ?? "";
+
+  document.title = resolvedPageTitle;
+
+  if (shareMetaElements.description) {
+    shareMetaElements.description.setAttribute("content", resolvedDescription);
+  }
+  if (shareMetaElements.ogTitle) {
+    shareMetaElements.ogTitle.setAttribute("content", resolvedShareTitle);
+  }
+  if (shareMetaElements.ogDescription) {
+    shareMetaElements.ogDescription.setAttribute(
+      "content",
+      resolvedDescription,
+    );
+  }
+  if (shareMetaElements.twitterTitle) {
+    shareMetaElements.twitterTitle.setAttribute(
+      "content",
+      resolvedShareTitle,
+    );
+  }
+  if (shareMetaElements.twitterDescription) {
+    shareMetaElements.twitterDescription.setAttribute(
+      "content",
+      resolvedDescription,
+    );
+  }
+}
+
+function resetShareMetadata() {
+  applyShareMetadata({
+    pageTitle: shareMetaDefaults.documentTitle,
+    shareTitle: shareMetaDefaults.ogTitle,
+    description: shareMetaDefaults.description,
+  });
+}
+
+function cleanWhitespace(value) {
+  return value ? value.replace(/\s+/g, " ").trim() : "";
+}
+
+function cleanSectionNumber(value) {
+  if (!value) return "";
+  return cleanWhitespace(
+    value
+      .replace(/\u202f/g, " ")
+      .replace(/\s+—+$/, "")
+      .replace(/[.\s]+$/, ""),
+  );
+}
+
+function formatTitleShareLabel(metadata) {
+  if (!metadata) return "";
+  const base = metadata.number ? `Title ${cleanWhitespace(metadata.number)}` : "";
+  const heading = cleanWhitespace(metadata.heading);
+  const label = cleanWhitespace(metadata.label);
+  if (base && heading) {
+    return `${base} — ${heading}`;
+  }
+  if (base && label) {
+    return `${base} — ${label}`;
+  }
+  return heading || label || base;
+}
+
+function formatSectionShareLabel(sectionNode) {
+  if (!sectionNode) return "";
+  const number = cleanSectionNumber(sectionNode.number || "");
+  const numberLabel = number.replace(/^§\s*/, "Section ");
+  const heading = cleanWhitespace(sectionNode.heading);
+  if (numberLabel && heading) {
+    return `${numberLabel} — ${heading}`;
+  }
+  return heading || numberLabel;
+}
+
+function applyTitleShareMetadata(metadata) {
+  const titleLabel = formatTitleShareLabel(metadata);
+  if (!titleLabel) {
+    resetShareMetadata();
+    return;
+  }
+  applyShareMetadata({
+    pageTitle: `${titleLabel} | ${SITE_NAME}`,
+    shareTitle: titleLabel,
+    description: `Browse ${titleLabel} of the United States Code.`,
+  });
+}
+
+function applySectionShareMetadata(metadata, sectionNode) {
+  const titleLabel = formatTitleShareLabel(metadata);
+  const sectionLabel = formatSectionShareLabel(sectionNode);
+  if (!sectionLabel) {
+    applyTitleShareMetadata(metadata);
+    return;
+  }
+  const shareTitle = titleLabel
+    ? `${titleLabel}, ${sectionLabel}`
+    : sectionLabel;
+  const description = titleLabel
+    ? `View ${sectionLabel} within ${titleLabel} of the United States Code.`
+    : `View ${sectionLabel} in the United States Code.`;
+  applyShareMetadata({
+    pageTitle: `${shareTitle} | ${SITE_NAME}`,
+    shareTitle,
+    description,
+  });
+}
+
 function getUrlState() {
   const params = new URLSearchParams(window.location.search);
   const title = params.get("t") || params.get("title");
@@ -192,6 +330,7 @@ function resetViewer() {
   elements.breadcrumbs.innerHTML = "";
   elements.message.textContent = "Select a title to begin browsing the code.";
   setTocCollapsed(false);
+  resetShareMetadata();
 }
 
 function handlePopState() {
@@ -269,6 +408,8 @@ async function loadTitle(file, options = {}) {
   elements.message.textContent = "Loading title...";
 
   highlightTitle(file);
+
+  applyTitleShareMetadata(metadata);
 
   const titleParam = getTitleLocationValue(metadata);
   if (skipHistoryUpdate) {
@@ -469,6 +610,7 @@ async function displaySection(identifierOrNumber, options = {}) {
   const path = nav.index.get(lookupKey);
   if (!path) {
     elements.message.textContent = "Section could not be located in this title.";
+    applyTitleShareMetadata(nav.metadata);
     return;
   }
   const sectionNode = path[path.length - 1];
@@ -480,12 +622,14 @@ async function displaySection(identifierOrNumber, options = {}) {
     const sectionElement = findSectionElement(doc, sectionNode.identifier, sectionNode.number);
     if (!sectionElement) {
       elements.message.textContent = "Section markup not found in XML.";
+      applyTitleShareMetadata(nav.metadata);
       return;
     }
     renderBreadcrumbs(path);
     renderSection(sectionElement);
     highlightSectionLink(sectionNode);
     setTocCollapsed(true);
+    applySectionShareMetadata(nav.metadata, sectionNode);
     const titleParam = getTitleLocationValue(nav.metadata);
     if (sectionParam) {
       if (skipHistoryUpdate) {
@@ -498,6 +642,7 @@ async function displaySection(identifierOrNumber, options = {}) {
   } catch (error) {
     console.error(error);
     elements.message.textContent = "Unable to render section.";
+    applyTitleShareMetadata(nav.metadata);
   }
 }
 
