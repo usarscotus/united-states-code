@@ -20,9 +20,14 @@ const state = {
   xmlCache: new Map(),
   navigation: new Map(),
   selectedTitleId: null,
+  selectedTitleMeta: null,
   selectedSectionId: null,
   tocCollapsed: false,
   theme: "system",
+  location: {
+    title: null,
+    section: null,
+  },
 };
 
 const elements = {
@@ -46,6 +51,124 @@ const mediaQueries = {
   prefersDark: window.matchMedia("(prefers-color-scheme: dark)"),
 };
 
+function getUrlState() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    title: params.get("title"),
+    section: params.get("section"),
+  };
+}
+
+function setLocationState(nextState, options = {}) {
+  const { replace = false } = options;
+  const desired = {
+    title: nextState.title || null,
+    section: nextState.section || null,
+  };
+  if (
+    state.location.title === desired.title &&
+    state.location.section === desired.section
+  ) {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  if (desired.title) {
+    url.searchParams.set("title", desired.title);
+  } else {
+    url.searchParams.delete("title");
+  }
+  if (desired.section) {
+    url.searchParams.set("section", desired.section);
+  } else {
+    url.searchParams.delete("section");
+  }
+
+  const method = replace ? "replaceState" : "pushState";
+  if (typeof history[method] === "function") {
+    history[method]({}, "", url);
+  } else {
+    window.location.assign(url);
+    return;
+  }
+  state.location = desired;
+}
+
+function findTitleByLocationParam(value) {
+  if (!value) return null;
+  let match = state.titles.find((title) => title.identifier === value);
+  if (match) return match;
+  match = state.titles.find((title) => title.file === value);
+  if (match) return match;
+  return state.titles.find(
+    (title) => normalizeTitleNumber(title.number) === normalizeTitleNumber(value),
+  ) || null;
+}
+
+function getTitleLocationValue(metadata) {
+  if (!metadata) return null;
+  return metadata.identifier || metadata.file || metadata.number || null;
+}
+
+async function restoreFromLocation() {
+  const { title, section } = getUrlState();
+  const rawState = {
+    title: title || null,
+    section: section || null,
+  };
+
+  if (!rawState.title) {
+    state.location = rawState;
+    resetViewer();
+    return;
+  }
+
+  const metadata = findTitleByLocationParam(rawState.title);
+  if (!metadata) {
+    state.location = rawState;
+    resetViewer();
+    elements.message.textContent = "Requested title could not be found.";
+    return;
+  }
+
+  const preserveSection = Boolean(rawState.section);
+  state.location = {
+    title: rawState.title,
+    section: rawState.section,
+  };
+
+  await loadTitle(metadata.file, {
+    skipHistoryUpdate: true,
+    preserveSection,
+  });
+
+  if (rawState.section) {
+    await displaySection(rawState.section, { skipHistoryUpdate: true });
+  } else {
+    state.location.section = null;
+  }
+}
+
+function resetViewer() {
+  state.selectedTitleId = null;
+  state.selectedTitleMeta = null;
+  state.selectedSectionId = null;
+  highlightTitle(null);
+  elements.titleOverview.hidden = true;
+  elements.titleOverview.innerHTML = "";
+  elements.tocContainer.hidden = true;
+  elements.toc.innerHTML = "";
+  elements.sectionContent.hidden = true;
+  elements.sectionContent.innerHTML = "";
+  elements.breadcrumbs.innerHTML = "";
+  elements.message.textContent = "Select a title to begin browsing the code.";
+  setTocCollapsed(false);
+}
+
+function handlePopState() {
+  restoreFromLocation();
+}
+
 async function bootstrap() {
   const response = await fetch("data/titles.json");
   if (!response.ok) {
@@ -62,7 +185,11 @@ async function bootstrap() {
     button.addEventListener("click", () => setTheme(button.dataset.themeChoice)),
   );
   initializeTheme();
-  elements.message.textContent = "Select a title to begin browsing the code.";
+  window.addEventListener("popstate", handlePopState);
+  await restoreFromLocation();
+  if (!state.selectedTitleId) {
+    elements.message.textContent = "Select a title to begin browsing the code.";
+  }
 }
 
 function renderTitleList(titles) {
@@ -98,10 +225,12 @@ function handleTitleFilter(event) {
   });
 }
 
-async function loadTitle(file) {
+async function loadTitle(file, options = {}) {
+  const { skipHistoryUpdate = false, preserveSection = false } = options;
   const metadata = state.titles.find((title) => title.file === file);
   if (!metadata) return;
   state.selectedTitleId = file;
+  state.selectedTitleMeta = metadata;
   state.selectedSectionId = null;
 
   elements.sectionContent.hidden = true;
@@ -111,6 +240,16 @@ async function loadTitle(file) {
   elements.message.textContent = "Loading title...";
 
   highlightTitle(file);
+
+  const titleParam = getTitleLocationValue(metadata);
+  if (skipHistoryUpdate) {
+    state.location.title = titleParam;
+    if (!preserveSection) {
+      state.location.section = null;
+    }
+  } else {
+    setLocationState({ title: titleParam, section: null });
+  }
 
   if (metadata.pointer) {
     elements.message.textContent =
@@ -279,7 +418,8 @@ function formatNodeLabel(node) {
   return heading || num || node.type.toUpperCase();
 }
 
-async function displaySection(identifierOrNumber) {
+async function displaySection(identifierOrNumber, options = {}) {
+  const { skipHistoryUpdate = false } = options;
   const titleId = state.selectedTitleId;
   if (!titleId) return;
   const nav = state.navigation.get(titleId);
@@ -295,6 +435,7 @@ async function displaySection(identifierOrNumber) {
   }
   const sectionNode = path[path.length - 1];
   state.selectedSectionId = sectionNode.identifier || sectionNode.number;
+  const sectionParam = sectionNode.identifier || (sectionNode.number ? sectionKey(sectionNode.number) : null);
 
   try {
     const { doc } = await fetchTitleDocument(nav.metadata);
@@ -307,6 +448,15 @@ async function displaySection(identifierOrNumber) {
     renderSection(sectionElement);
     highlightSectionLink(sectionNode);
     setTocCollapsed(true);
+    const titleParam = getTitleLocationValue(nav.metadata);
+    if (sectionParam) {
+      if (skipHistoryUpdate) {
+        state.location.title = titleParam;
+        state.location.section = sectionParam;
+      } else {
+        setLocationState({ title: titleParam, section: sectionParam });
+      }
+    }
   } catch (error) {
     console.error(error);
     elements.message.textContent = "Unable to render section.";

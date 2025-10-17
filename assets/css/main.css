@@ -267,6 +267,11 @@ summary {
   font: inherit;
   color: inherit;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  width: 100%;
 }
 
 .title-item__label {
