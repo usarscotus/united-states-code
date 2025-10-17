@@ -53,9 +53,11 @@ const mediaQueries = {
 
 function getUrlState() {
   const params = new URLSearchParams(window.location.search);
+  const title = params.get("t") || params.get("title");
+  const section = params.get("s") || params.get("section");
   return {
-    title: params.get("title"),
-    section: params.get("section"),
+    title,
+    section,
   };
 }
 
@@ -66,6 +68,7 @@ function setLocationState(nextState, options = {}) {
     section: nextState.section || null,
   };
   if (
+    !replace &&
     state.location.title === desired.title &&
     state.location.section === desired.section
   ) {
@@ -74,14 +77,21 @@ function setLocationState(nextState, options = {}) {
 
   const url = new URL(window.location.href);
   if (desired.title) {
-    url.searchParams.set("title", desired.title);
+    url.searchParams.set("t", desired.title);
   } else {
-    url.searchParams.delete("title");
+    url.searchParams.delete("t");
   }
+  url.searchParams.delete("title");
+
   if (desired.section) {
-    url.searchParams.set("section", desired.section);
+    url.searchParams.set("s", desired.section);
   } else {
-    url.searchParams.delete("section");
+    url.searchParams.delete("s");
+  }
+  url.searchParams.delete("section");
+
+  if (!url.searchParams.toString()) {
+    url.search = "";
   }
 
   const method = replace ? "replaceState" : "pushState";
@@ -107,7 +117,13 @@ function findTitleByLocationParam(value) {
 
 function getTitleLocationValue(metadata) {
   if (!metadata) return null;
-  return metadata.identifier || metadata.file || metadata.number || null;
+  if (metadata.number) {
+    const compact = metadata.number.replace(/\s+/g, "");
+    if (compact) {
+      return compact;
+    }
+  }
+  return metadata.identifier || metadata.file || null;
 }
 
 async function restoreFromLocation() {
@@ -142,11 +158,24 @@ async function restoreFromLocation() {
     preserveSection,
   });
 
+  let sectionRestored = false;
   if (rawState.section) {
     await displaySection(rawState.section, { skipHistoryUpdate: true });
+    sectionRestored = Boolean(state.selectedSectionId);
+    if (!sectionRestored) {
+      state.location.section = null;
+    }
   } else {
     state.location.section = null;
   }
+
+  setLocationState(
+    {
+      title: state.location.title,
+      section: sectionRestored ? state.location.section : null,
+    },
+    { replace: true },
+  );
 }
 
 function resetViewer() {
@@ -348,6 +377,15 @@ function sectionKey(value) {
   return value.replace(/[^a-z0-9]/gi, "").toLowerCase();
 }
 
+function getSectionLocationValue(node) {
+  if (!node) return null;
+  if (node.number) {
+    const key = sectionKey(node.number);
+    if (key) return key;
+  }
+  return node.identifier || null;
+}
+
 function directChildText(element, name) {
   const child = Array.from(element.children).find(
     (el) => el.namespaceURI === USLM_NS && el.localName === name,
@@ -435,7 +473,7 @@ async function displaySection(identifierOrNumber, options = {}) {
   }
   const sectionNode = path[path.length - 1];
   state.selectedSectionId = sectionNode.identifier || sectionNode.number;
-  const sectionParam = sectionNode.identifier || (sectionNode.number ? sectionKey(sectionNode.number) : null);
+  const sectionParam = getSectionLocationValue(sectionNode);
 
   try {
     const { doc } = await fetchTitleDocument(nav.metadata);
