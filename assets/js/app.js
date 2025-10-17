@@ -14,12 +14,15 @@ const STRUCTURAL_TAGS = new Set([
   "subpart1",
 ]);
 
+const THEME_STORAGE_KEY = "usc-theme";
 const state = {
   titles: [],
   xmlCache: new Map(),
   navigation: new Map(),
   selectedTitleId: null,
   selectedSectionId: null,
+  tocCollapsed: false,
+  theme: "system",
 };
 
 const elements = {
@@ -29,11 +32,18 @@ const elements = {
   message: document.getElementById("document-message"),
   breadcrumbs: document.getElementById("breadcrumbs"),
   titleOverview: document.getElementById("title-overview"),
+  tocContainer: document.getElementById("toc-container"),
   toc: document.getElementById("toc"),
   sectionContent: document.getElementById("section-content"),
   citationForm: document.getElementById("citation-search"),
   citationTitle: document.getElementById("citation-title"),
   citationSection: document.getElementById("citation-section"),
+  tocToggle: document.getElementById("toc-toggle"),
+  themeButtons: document.querySelectorAll("[data-theme-choice]"),
+};
+
+const mediaQueries = {
+  prefersDark: window.matchMedia("(prefers-color-scheme: dark)"),
 };
 
 async function bootstrap() {
@@ -47,6 +57,11 @@ async function bootstrap() {
   renderTitleList(state.titles);
   elements.titleFilter.addEventListener("input", handleTitleFilter);
   elements.citationForm.addEventListener("submit", handleCitationSearch);
+  elements.tocToggle.addEventListener("click", toggleToc);
+  elements.themeButtons.forEach((button) =>
+    button.addEventListener("click", () => setTheme(button.dataset.themeChoice)),
+  );
+  initializeTheme();
   elements.message.textContent = "Select a title to begin browsing the code.";
 }
 
@@ -90,7 +105,7 @@ async function loadTitle(file) {
   state.selectedSectionId = null;
 
   elements.sectionContent.hidden = true;
-  elements.toc.hidden = true;
+  elements.tocContainer.hidden = true;
   elements.titleOverview.hidden = true;
   elements.breadcrumbs.innerHTML = "";
   elements.message.textContent = "Loading title...";
@@ -108,6 +123,7 @@ async function loadTitle(file) {
     const nav = buildNavigation(metadata, doc);
     state.navigation.set(file, nav);
     renderTitle(metadata, nav);
+    setTocCollapsed(false);
   } catch (error) {
     console.error(error);
     elements.message.textContent = "Unable to parse the selected title.";
@@ -205,13 +221,13 @@ function renderTitle(metadata, nav) {
   elements.titleOverview.hidden = false;
   elements.titleOverview.innerHTML = `
     <h2>${metadata.heading}</h2>
-    <p><strong>Citation:</strong> Title ${metadata.number}</p>
-    <p class="overview-meta">Source file: <code>${metadata.file}</code></p>
+    <p class="overview-meta">Title ${metadata.number}</p>
   `;
 
-  elements.toc.hidden = false;
+  elements.tocContainer.hidden = false;
   elements.toc.innerHTML = "";
   elements.toc.appendChild(renderTree(nav.root));
+  elements.tocToggle.setAttribute("aria-expanded", String(!state.tocCollapsed));
 }
 
 function renderTree(node) {
@@ -290,6 +306,7 @@ async function displaySection(identifierOrNumber) {
     renderBreadcrumbs(path);
     renderSection(sectionElement);
     highlightSectionLink(sectionNode);
+    setTocCollapsed(true);
   } catch (error) {
     console.error(error);
     elements.message.textContent = "Unable to render section.";
@@ -369,14 +386,29 @@ function renderSection(sectionElement) {
   statutePanel.id = "section-statute";
   textButton.setAttribute("aria-controls", statutePanel.id);
 
+  const body = document.createElement("div");
+  body.className = "usc-body";
   const content = directChild(sectionElement, "content");
-  if (content) {
-    const body = document.createElement("div");
-    body.className = "usc-body";
-    content.childNodes.forEach((child) => {
-      const rendered = renderNode(child);
-      if (rendered) body.appendChild(rendered);
-    });
+  const contentNodes = content
+    ? Array.from(content.childNodes)
+    : Array.from(sectionElement.childNodes).filter((child) => {
+        if (child.nodeType !== Node.ELEMENT_NODE) {
+          return child.nodeType === Node.TEXT_NODE && child.textContent.trim().length;
+        }
+        if (child.namespaceURI !== USLM_NS) return true;
+        return !["num", "heading", "notes", "sourceCredit"].includes(child.localName);
+      });
+
+  let hasContent = false;
+  contentNodes.forEach((child) => {
+    const rendered = renderNode(child);
+    if (rendered) {
+      body.appendChild(rendered);
+      hasContent = true;
+    }
+  });
+
+  if (hasContent) {
     statutePanel.appendChild(body);
   } else {
     const empty = document.createElement("p");
@@ -649,3 +681,59 @@ function normalizeTitleNumber(value) {
 }
 
 document.addEventListener("DOMContentLoaded", bootstrap);
+
+function toggleToc() {
+  setTocCollapsed(!state.tocCollapsed);
+}
+
+function setTocCollapsed(collapsed) {
+  state.tocCollapsed = collapsed;
+  elements.tocContainer.dataset.state = collapsed ? "collapsed" : "expanded";
+  elements.tocToggle.textContent = collapsed ? "Expand" : "Collapse";
+  elements.tocToggle.setAttribute("aria-expanded", String(!collapsed));
+  elements.toc.setAttribute("aria-hidden", collapsed ? "true" : "false");
+}
+
+function initializeTheme() {
+  const stored = localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored && ["system", "light", "dark"].includes(stored)) {
+    state.theme = stored;
+  }
+  applyTheme();
+  if (typeof mediaQueries.prefersDark.addEventListener === "function") {
+    mediaQueries.prefersDark.addEventListener("change", handleSystemThemeChange);
+  } else if (typeof mediaQueries.prefersDark.addListener === "function") {
+    mediaQueries.prefersDark.addListener(handleSystemThemeChange);
+  }
+  updateThemeButtons();
+}
+
+function setTheme(choice) {
+  if (!choice || !["system", "light", "dark"].includes(choice)) return;
+  state.theme = choice;
+  localStorage.setItem(THEME_STORAGE_KEY, choice);
+  applyTheme();
+  updateThemeButtons();
+}
+
+function applyTheme() {
+  const root = document.documentElement;
+  const theme = state.theme === "system"
+    ? (mediaQueries.prefersDark.matches ? "dark" : "light")
+    : state.theme;
+  root.dataset.theme = theme;
+}
+
+function updateThemeButtons() {
+  elements.themeButtons.forEach((button) => {
+    const active = button.dataset.themeChoice === state.theme;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function handleSystemThemeChange() {
+  if (state.theme === "system") {
+    applyTheme();
+  }
+}

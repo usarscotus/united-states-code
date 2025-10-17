@@ -26,6 +26,11 @@
         </div>
         <button type="submit" class="button">Go</button>
       </form>
+      <div class="theme-switcher" role="group" aria-label="Color theme">
+        <button type="button" class="theme-switcher__button" data-theme-choice="system">System</button>
+        <button type="button" class="theme-switcher__button" data-theme-choice="light">Light</button>
+        <button type="button" class="theme-switcher__button" data-theme-choice="dark">Dark</button>
+      </div>
     </header>
 
     <main class="layout">
@@ -44,7 +49,13 @@
         <div id="document-message" class="document-message" role="status"></div>
         <nav id="breadcrumbs" class="breadcrumbs" aria-label="Section breadcrumb"></nav>
         <article id="title-overview" class="title-overview" hidden></article>
-        <div id="toc" class="toc" hidden></div>
+        <section id="toc-container" class="toc-container" hidden>
+          <div class="toc-toolbar">
+            <h3>Navigate Title</h3>
+            <button type="button" id="toc-toggle" class="toc-toggle" aria-controls="toc" aria-expanded="true">Collapse</button>
+          </div>
+          <div id="toc" class="toc"></div>
+        </section>
         <article id="section-content" class="section-content" hidden></article>
       </section>
     </main>
