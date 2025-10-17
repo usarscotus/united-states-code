@@ -545,16 +545,33 @@ async function fetchTitleDocument(metadata) {
   return payload;
 }
 
+function findStructuralRoot(element) {
+  if (!element) return null;
+  if (STRUCTURAL_TAGS.has(element.localName)) {
+    return element;
+  }
+
+  for (const child of Array.from(element.children)) {
+    const structural = findStructuralRoot(child);
+    if (structural) {
+      return structural;
+    }
+  }
+
+  return null;
+}
+
 function buildNavigation(metadata, doc) {
   const main = doc.getElementsByTagNameNS(USLM_NS, "main")[0];
-  const rootElement = main
-    ? Array.from(main.children).find((child) => STRUCTURAL_TAGS.has(child.localName))
-    : doc.documentElement;
+  const rootElement = findStructuralRoot(main ?? doc.documentElement);
   if (!rootElement) {
     throw new Error("Unable to locate structural root in XML document");
   }
 
   const rootNode = parseStructure(rootElement);
+  if (!rootNode) {
+    throw new Error("Unable to parse structural navigation in XML document");
+  }
   const index = new Map();
   buildIndex(rootNode, [], index);
 
@@ -582,6 +599,9 @@ function parseStructure(element) {
 }
 
 function buildIndex(node, parents, index) {
+  if (!node) {
+    return;
+  }
   const path = [...parents, node];
   if (node.identifier) {
     index.set(node.identifier, path);
