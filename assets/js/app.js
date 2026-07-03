@@ -48,7 +48,6 @@ const elements = {
   keywordInput: document.getElementById("keyword-search"),
   tocToggle: document.getElementById("toc-toggle"),
   themeButtons: document.querySelectorAll("[data-theme-choice]"),
-  quickTitleButtons: document.querySelectorAll("[data-title-jump]"),
   searchResults: document.getElementById("search-results"),
   searchResultsSummary: document.getElementById("search-results-summary"),
   searchResultsList: document.getElementById("search-results-list"),
@@ -429,9 +428,6 @@ async function bootstrap() {
   elements.themeButtons.forEach((button) =>
     button.addEventListener("click", () => setTheme(button.dataset.themeChoice)),
   );
-  elements.quickTitleButtons.forEach((button) =>
-    button.addEventListener("click", () => handleTitleJump(button.dataset.titleJump)),
-  );
   initializeTheme();
   setSearchMode(state.searchMode);
   window.addEventListener("popstate", handlePopState);
@@ -439,18 +435,6 @@ async function bootstrap() {
   if (!state.selectedTitleId) {
     elements.message.textContent = "Select a title to begin browsing the code.";
   }
-}
-
-async function handleTitleJump(titleNumber) {
-  const titleMeta = state.titles.find(
-    (title) => normalizeTitleNumber(title.number) === normalizeTitleNumber(titleNumber || ""),
-  );
-  if (!titleMeta) {
-    elements.message.textContent = `Title ${titleNumber} not found.`;
-    return;
-  }
-  await loadTitle(titleMeta.file);
-  document.getElementById("browse")?.scrollIntoView({ block: "start" });
 }
 
 function renderTitleList(titles) {

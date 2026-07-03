@@ -396,89 +396,6 @@ summary {
   padding: clamp(1rem, 2.5vw, 2rem) 0 2.5rem;
 }
 
-.resource-overview {
-  display: grid;
-  grid-template-columns: minmax(16rem, 0.7fr) minmax(20rem, 1.3fr);
-  gap: 1.25rem 2rem;
-  align-items: start;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--border);
-}
-
-.resource-overview__intro h2 {
-  margin: 0.25rem 0 0.6rem;
-  font-family: var(--serif);
-  font-size: clamp(1.45rem, 2.2vw, 2rem);
-  line-height: 1.15;
-}
-
-.resource-overview__intro p {
-  margin: 0;
-  color: var(--muted);
-}
-
-.resource-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.resource-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-top: 4px solid var(--cornell-red);
-  padding: 1rem;
-}
-
-.resource-card h3 {
-  margin: 0 0 0.4rem;
-  font-family: var(--serif);
-  font-size: 1.15rem;
-}
-
-.resource-card p {
-  margin: 0 0 0.75rem;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
-.resource-card a {
-  font-weight: 700;
-}
-
-.quick-finders {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  padding-top: 0.35rem;
-}
-
-.quick-finders span {
-  margin-right: 0.3rem;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.quick-finders button {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--link);
-  padding: 0.4rem 0.65rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.quick-finders button:hover,
-.quick-finders button:focus {
-  border-color: var(--cornell-red);
-  color: var(--cornell-red-dark);
-}
-
 .research-layout {
   display: grid;
   grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr);
@@ -928,7 +845,6 @@ summary {
 .section-link:focus-visible,
 .section-toggle__button:focus-visible,
 .title-item button:focus-visible,
-.quick-finders button:focus-visible,
 .primary-nav a:focus-visible,
 a:focus-visible,
 input:focus-visible {
@@ -959,7 +875,6 @@ input:focus-visible {
 
 @media (max-width: 1050px) {
   .search-band__inner,
-  .resource-overview,
   .research-layout {
     grid-template-columns: 1fr;
   }
@@ -969,11 +884,6 @@ input:focus-visible {
     max-height: none;
   }
 
-  .resource-grid {
-    grid-template-columns: repeat(3, minmax(12rem, 1fr));
-    overflow-x: auto;
-    padding-bottom: 0.2rem;
-  }
 }
 
 @media (max-width: 760px) {
@@ -1005,8 +915,7 @@ input:focus-visible {
     border-bottom: 1px solid var(--border);
   }
 
-  .search-band h1,
-  .resource-overview__intro h2 {
+  .search-band h1 {
     max-width: 100%;
     overflow-wrap: anywhere;
   }
@@ -1019,11 +928,6 @@ input:focus-visible {
   .citation-search__keyword,
   .button {
     grid-column: 1 / -1;
-  }
-
-  .resource-grid {
-    grid-template-columns: 1fr;
-    overflow: visible;
   }
 
   .section-header {
