@@ -26,95 +26,171 @@
     <link rel="stylesheet" href="assets/css/main.css" />
   </head>
   <body>
+    <a class="skip-link" href="#document-viewer">Skip to main content</a>
+
     <header class="site-header">
-      <div class="brand">
-        <span class="brand-abbr">USAR</span>
-        <div class="brand-text">
-          <h1>United States Code Library</h1>
-          <p>United States of America Roblox Legislative Reference</p>
+      <div class="utility-bar">
+        <div class="utility-bar__inner">
+          <span>United States of America Roblox</span>
+          <nav aria-label="Utility links">
+            <a href="docs/">Documentation</a>
+            <a href="laws/">Session laws</a>
+            <a href="README.md">About this project</a>
+          </nav>
         </div>
       </div>
-      <form id="citation-search" class="citation-search" autocomplete="off">
-        <fieldset class="citation-search__modes">
-          <legend class="visually-hidden">Choose how to search the code</legend>
-          <label class="citation-search__mode is-active">
-            <input
-              type="radio"
-              name="search-mode"
-              value="citation"
-              checked
-            />
-            <span>Citation</span>
-          </label>
-          <label class="citation-search__mode">
-            <input type="radio" name="search-mode" value="keyword" />
-            <span>Keyword</span>
-          </label>
-        </fieldset>
-        <div class="field">
-          <label for="citation-title">Title</label>
-          <input id="citation-title" name="title" type="text" inputmode="numeric" placeholder="e.g. 5" />
+
+      <div class="masthead">
+        <div class="masthead__inner">
+          <a class="brand" href="./" aria-label="US Code Library home">
+            <span class="brand-abbr">USC</span>
+            <span class="brand-text">
+              <span class="brand-kicker">Legal Information Reference</span>
+              <span class="brand-title">United States Code Library</span>
+            </span>
+          </a>
+
+          <div class="theme-switcher" role="group" aria-label="Color theme">
+            <button type="button" class="theme-switcher__button" data-theme-choice="system">System</button>
+            <button type="button" class="theme-switcher__button" data-theme-choice="light">Light</button>
+            <button type="button" class="theme-switcher__button" data-theme-choice="dark">Dark</button>
+          </div>
         </div>
-        <div class="field">
-          <label for="citation-section">Section</label>
-          <input id="citation-section" name="section" type="text" placeholder="e.g. 3331" />
-        </div>
-        <div class="field citation-search__keyword">
-          <label for="keyword-search">Keyword or phrase</label>
-          <input
-            id="keyword-search"
-            name="keyword"
-            type="search"
-            placeholder="e.g. Director of the Central Intelligence Agency"
-            disabled
-          />
-        </div>
-        <button type="submit" class="button">Go</button>
-      </form>
-      <div class="theme-switcher" role="group" aria-label="Color theme">
-        <button type="button" class="theme-switcher__button" data-theme-choice="system">System</button>
-        <button type="button" class="theme-switcher__button" data-theme-choice="light">Light</button>
-        <button type="button" class="theme-switcher__button" data-theme-choice="dark">Dark</button>
       </div>
+
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <div class="primary-nav__inner">
+          <a href="#search">Search</a>
+          <a href="#browse">Browse Titles</a>
+          <a href="#resources">Legal Resources</a>
+          <a href="#document-viewer">Current Document</a>
+        </div>
+      </nav>
     </header>
 
-    <main class="layout">
-      <aside class="title-browser" aria-label="US Code titles">
-        <div class="title-browser__header">
-          <h2>Browse Titles</h2>
-          <input id="title-filter" type="search" placeholder="Filter titles" aria-label="Filter titles" />
+    <section id="search" class="search-band" aria-labelledby="search-heading">
+      <div class="search-band__inner">
+        <div class="search-band__copy">
+          <p class="eyebrow">Search the Code</p>
+          <h1 id="search-heading">Find a title, section, or phrase in the United States Code.</h1>
         </div>
-        <nav id="title-list" class="title-list" aria-live="polite"></nav>
-        <div class="title-browser__footer">
-          <p>Data generated directly from US Code XML. Large titles stored in Git LFS must be fetched locally before they can be rendered.</p>
-        </div>
-      </aside>
 
-      <section id="document-viewer" class="document-viewer" aria-live="polite">
-        <div id="document-message" class="document-message" role="status"></div>
-        <nav id="breadcrumbs" class="breadcrumbs" aria-label="Section breadcrumb"></nav>
-        <article id="title-overview" class="title-overview" hidden></article>
-        <section id="toc-container" class="toc-container" hidden>
-          <div class="toc-toolbar">
-            <h3>Navigate Title</h3>
-            <button type="button" id="toc-toggle" class="toc-toggle" aria-controls="toc" aria-expanded="true">Collapse</button>
+        <form id="citation-search" class="citation-search" autocomplete="off">
+          <fieldset class="citation-search__modes">
+            <legend class="visually-hidden">Choose how to search the code</legend>
+            <label class="citation-search__mode is-active">
+              <input type="radio" name="search-mode" value="citation" checked />
+              <span>Citation</span>
+            </label>
+            <label class="citation-search__mode">
+              <input type="radio" name="search-mode" value="keyword" />
+              <span>Keyword</span>
+            </label>
+          </fieldset>
+          <div class="field">
+            <label for="citation-title">Title</label>
+            <input id="citation-title" name="title" type="text" inputmode="numeric" placeholder="5" />
           </div>
-          <div id="toc" class="toc"></div>
-        </section>
-        <section id="search-results" class="search-results" hidden aria-live="polite">
-          <div class="search-results__summary">
-            <h2>Search results</h2>
-            <p id="search-results-summary"></p>
+          <div class="field">
+            <label for="citation-section">Section</label>
+            <input id="citation-section" name="section" type="text" placeholder="3331" />
           </div>
-          <ol id="search-results-list" class="search-results__list"></ol>
-          <div id="search-results-note" class="search-results__note" hidden></div>
-        </section>
-        <article id="section-content" class="section-content" hidden></article>
+          <div class="field citation-search__keyword">
+            <label for="keyword-search">Keyword or phrase</label>
+            <input
+              id="keyword-search"
+              name="keyword"
+              type="search"
+              placeholder="Director of the Central Intelligence Agency"
+              disabled
+            />
+          </div>
+          <button type="submit" class="button">Search</button>
+        </form>
+      </div>
+    </section>
+
+    <main class="page-shell">
+      <section id="resources" class="resource-overview" aria-labelledby="resources-heading">
+        <div class="resource-overview__intro">
+          <p class="eyebrow">Legal Resources</p>
+          <h2 id="resources-heading">A cleaner public-law reference for USAR.</h2>
+          <p>
+            Browse primary law by title, jump to familiar parts of the Code, or search across
+            locally available XML. The interface is intentionally quiet so the statute text stays
+            easy to scan.
+          </p>
+        </div>
+
+        <div class="resource-grid" aria-label="Featured resources">
+          <article class="resource-card">
+            <h3>Primary Sources</h3>
+            <p>Full title browsing from the US Code XML included in this repository.</p>
+            <a href="#browse">Browse all titles</a>
+          </article>
+          <article class="resource-card">
+            <h3>Citation Lookup</h3>
+            <p>Go directly to a title and section when you already know the citation.</p>
+            <a href="#search">Search by citation</a>
+          </article>
+          <article class="resource-card">
+            <h3>Session Laws</h3>
+            <p>Review locally stored enacted-law PDFs alongside the codified text.</p>
+            <a href="laws/">View laws folder</a>
+          </article>
+        </div>
+
+        <div class="quick-finders" aria-label="Common title shortcuts">
+          <span>Popular titles</span>
+          <button type="button" data-title-jump="1">General Provisions</button>
+          <button type="button" data-title-jump="5">Government Organization</button>
+          <button type="button" data-title-jump="18">Crimes</button>
+          <button type="button" data-title-jump="28">Judiciary</button>
+          <button type="button" data-title-jump="52">Voting</button>
+        </div>
       </section>
+
+      <div id="browse" class="research-layout">
+        <aside class="title-browser" aria-label="US Code titles">
+          <div class="title-browser__header">
+            <h2>U.S. Code Titles</h2>
+            <input id="title-filter" type="search" placeholder="Filter titles" aria-label="Filter titles" />
+          </div>
+          <nav id="title-list" class="title-list" aria-live="polite"></nav>
+          <div class="title-browser__footer">
+            <p>Some large titles require Git LFS content before they can be rendered locally.</p>
+          </div>
+        </aside>
+
+        <section id="document-viewer" class="document-viewer" aria-live="polite">
+          <div id="document-message" class="document-message" role="status"></div>
+          <nav id="breadcrumbs" class="breadcrumbs" aria-label="Section breadcrumb"></nav>
+          <article id="title-overview" class="title-overview" hidden></article>
+          <section id="toc-container" class="toc-container" hidden>
+            <div class="toc-toolbar">
+              <h3>Contents</h3>
+              <button type="button" id="toc-toggle" class="toc-toggle" aria-controls="toc" aria-expanded="true">Collapse</button>
+            </div>
+            <div id="toc" class="toc"></div>
+          </section>
+          <section id="search-results" class="search-results" hidden aria-live="polite">
+            <div class="search-results__summary">
+              <h2>Search Results</h2>
+              <p id="search-results-summary"></p>
+            </div>
+            <ol id="search-results-list" class="search-results__list"></ol>
+            <div id="search-results-note" class="search-results__note" hidden></div>
+          </section>
+          <article id="section-content" class="section-content" hidden></article>
+        </section>
+      </div>
     </main>
 
     <footer class="site-footer">
-      <p>Maintained for the USAR community. Source XML files published by the Office of the Law Revision Counsel.</p>
+      <div class="site-footer__inner">
+        <p>Maintained for the USAR community.</p>
+        <p>Source XML files are published by the Office of the Law Revision Counsel.</p>
+      </div>
     </footer>
 
     <script type="module" src="assets/js/app.js"></script>
